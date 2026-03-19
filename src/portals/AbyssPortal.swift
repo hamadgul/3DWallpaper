@@ -30,7 +30,7 @@ public enum AbyssPortal {
         mat.diffuse.contents = img
         plane.firstMaterial  = mat
         let node = SCNNode(geometry: plane)
-        node.position.z = depth
+        node.position.z = CGFloat(depth)
         parent.addChildNode(node)
     }
 
@@ -85,7 +85,7 @@ public enum AbyssPortal {
                 -8 + height / 2,
                 depth + Float.random(in: -2...2)
             )
-            node.eulerAngles.z = Float.random(in: -0.3...0.3)
+            node.eulerAngles.z = CGFloat(Float.random(in: -0.3...0.3))
             parent.addChildNode(node)
         }
     }
@@ -140,8 +140,8 @@ public enum AbyssPortal {
         ps.blendMode                 = .additive
 
         let emitter = SCNNode()
-        emitter.position    = SCNVector3(0, -8, depth)
-        emitter.eulerAngles = SCNVector3(.pi / 2, 0, 0)
+        emitter.position    = SCNVector3(0, -8, Float(depth))
+        emitter.eulerAngles = SCNVector3(Float.pi / 2, 0, 0)
         emitter.addParticleSystem(ps)
         parent.addChildNode(emitter)
     }
@@ -155,8 +155,8 @@ public enum AbyssPortal {
         tube.firstMaterial = mat
 
         let frame = SCNNode(geometry: tube)
-        frame.position.z    = depth
-        frame.eulerAngles.x = .pi / 2
+        frame.position.z    = CGFloat(depth)
+        frame.eulerAngles.x = CGFloat(Float.pi / 2)
         parent.addChildNode(frame)
 
         for i in 0..<12 {
@@ -164,7 +164,7 @@ public enum AbyssPortal {
             let bolt  = SCNSphere(radius: 0.25)
             bolt.firstMaterial = mat
             let bNode = SCNNode(geometry: bolt)
-            bNode.position = SCNVector3(cos(angle) * 8.25, sin(angle) * 8.25, depth)
+            bNode.position = SCNVector3(cos(angle) * 8.25, sin(angle) * 8.25, Float(depth))
             parent.addChildNode(bNode)
         }
     }
