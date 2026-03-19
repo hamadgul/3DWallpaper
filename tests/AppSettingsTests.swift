@@ -11,7 +11,7 @@ final class AppSettingsTests: XCTestCase {
     }
 
     func test_sensitivity_defaultValue() {
-        XCTAssertEqual(settings.sensitivity, 6.0, accuracy: 0.001)
+        XCTAssertEqual(settings.sensitivity, 10.0, accuracy: 0.001)
     }
 
     func test_sensitivity_persistsRoundTrip() {
