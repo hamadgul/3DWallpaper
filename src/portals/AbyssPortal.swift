@@ -113,7 +113,7 @@ public enum AbyssPortal {
             node.position = SCNVector3(
                 Float(i) * 3.5 + Float.random(in: -1.5...1.5),
                 4,
-                Float.random(in: -8 ... -20)
+                Float.random(in: -20 ... -8)
             )
             node.eulerAngles.z = CGFloat(Float.random(in: -0.20...0.20))
             let sway = SCNAction.repeatForever(.sequence([
@@ -184,7 +184,7 @@ public enum AbyssPortal {
             node.position = SCNVector3(
                 Float.random(in: -18...18),
                 Float(floorY) + Float.random(in: 1...12),
-                Float.random(in: -5 ... -25)
+                Float.random(in: -25 ... -5)
             )
             let drift = SCNAction.repeatForever(.sequence([
                 .moveBy(x: CGFloat.random(in: -1.5...1.5),

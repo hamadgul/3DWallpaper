@@ -41,11 +41,16 @@ public final class ParallaxScene {
     // MARK: - Public API
 
     /// Animate camera toward target offset (called each head-position update).
+    /// Uses rotation (yaw/pitch) so the camera looks around the scene — this is what
+    /// creates genuine 3D parallax: near objects shift much more than far ones, and
+    /// you see different faces of geometry as you move.  Pure XY translation just
+    /// pans the whole scene like a 2D image.
     public func updateCameraOffset(_ offset: CGPoint) {
         SCNTransaction.begin()
         SCNTransaction.animationDuration = 0.08
-        cameraNode.position.x = CGFloat(Float(offset.x))
-        cameraNode.position.y = CGFloat(Float(offset.y))
+        // 0.04 rad per scene-unit keeps the range comfortable at default sensitivity=10
+        cameraNode.eulerAngles.y = CGFloat( Float(offset.x) * 0.04)   // head right → look right
+        cameraNode.eulerAngles.x = CGFloat(-Float(offset.y) * 0.04)   // head up    → look up
         SCNTransaction.commit()
     }
 
