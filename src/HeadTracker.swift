@@ -19,7 +19,7 @@ public final class HeadTracker {
 
     public func process(sampleBuffer: CMSampleBuffer) {
         try? requestHandler.perform([request], on: sampleBuffer,
-                                    orientation: .leftMirrored)
+                                    orientation: .upMirrored)
     }
 
     // MARK: - Internal (static so tests can call without AVFoundation hardware)

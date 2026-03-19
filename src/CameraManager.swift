@@ -11,30 +11,40 @@ public final class CameraManager: NSObject {
     private let queue   = DispatchQueue(label: "com.3dwallpaper.camera", qos: .userInteractive)
     private var frameCount = 0
 
+    private var isConfigured = false
+
     public override init() { super.init() }
 
     public func start() throws {
-        session.beginConfiguration()
-        session.sessionPreset = .vga640x480   // low res = fast Vision processing
+        guard !session.isRunning else { return }
 
-        guard
-            let device = AVCaptureDevice.default(.builtInWideAngleCamera,
-                                                  for: .video, position: .front)
-                      ?? AVCaptureDevice.default(for: .video),
-            let input  = try? AVCaptureDeviceInput(device: device),
-            session.canAddInput(input)
-        else { throw CameraError.noCamera }
+        if !isConfigured {
+            session.beginConfiguration()
+            defer { session.commitConfiguration() }
 
-        session.addInput(input)
-        output.setSampleBufferDelegate(self, queue: queue)
-        output.alwaysDiscardsLateVideoFrames = true
-        guard session.canAddOutput(output) else { throw CameraError.outputFailed }
-        session.addOutput(output)
-        session.commitConfiguration()
+            session.sessionPreset = .vga640x480   // low res = fast Vision processing
+
+            guard
+                let device = AVCaptureDevice.default(.builtInWideAngleCamera,
+                                                      for: .video, position: .front)
+                          ?? AVCaptureDevice.default(for: .video),
+                let input  = try? AVCaptureDeviceInput(device: device),
+                session.canAddInput(input)
+            else { throw CameraError.noCamera }
+
+            session.addInput(input)
+            output.setSampleBufferDelegate(self, queue: queue)
+            output.alwaysDiscardsLateVideoFrames = true
+            guard session.canAddOutput(output) else { throw CameraError.outputFailed }
+            session.addOutput(output)
+            isConfigured = true
+        }
+
         session.startRunning()
     }
 
     public func stop() {
+        guard session.isRunning else { return }
         session.stopRunning()
         frameCount = 0
     }

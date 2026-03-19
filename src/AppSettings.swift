@@ -9,9 +9,9 @@ public final class AppSettings {
         defaults = UserDefaults(suiteName: suiteName) ?? .standard
     }
 
-    /// 1–15, default 6.
+    /// 1–30, default 10.
     public var sensitivity: Double {
-        get { defaults.double(forKey: "sensitivity").nonZero(default: 6.0) }
+        get { defaults.double(forKey: "sensitivity").nonZero(default: 10.0) }
         set { defaults.set(newValue, forKey: "sensitivity") }
     }
 

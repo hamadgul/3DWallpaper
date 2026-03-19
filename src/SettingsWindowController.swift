@@ -8,7 +8,7 @@ public final class SettingsWindowController: NSWindowController {
     // MARK: - Controls
 
     private let sensitivitySlider = NSSlider(value: AppSettings.shared.sensitivity,
-                                              minValue: 1, maxValue: 15,
+                                              minValue: 1, maxValue: 30,
                                               target: nil, action: nil)
     private let depthSlider       = NSSlider(value: AppSettings.shared.depthIntensity,
                                               minValue: 0, maxValue: 1,
