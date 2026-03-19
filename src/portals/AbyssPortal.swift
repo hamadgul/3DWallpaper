@@ -1,17 +1,15 @@
 import AppKit
 import SceneKit
 
-/// Deep ocean viewed through a submarine porthole.
-/// The sandy floor recedes into murky darkness; coral, jellyfish, and fish
-/// inhabit different depth layers. Dense fog gives a true underwater feel.
+/// Deep ocean floor.
+/// Bioluminescent life, volumetric light rays, looping fish schools.
+/// Depth zones: foreground coral z≈-1, jellyfish z=-4…-18, fish z=-4…-22, floor z=-10
 public enum AbyssPortal {
     private static let floorY: Float = -10
 
     public static func makeScene() -> SCNScene {
         let scene = SCNScene()
         scene.background.contents = NSColor(red: 0.00, green: 0.01, blue: 0.04, alpha: 1)
-
-        // Water is naturally murky — heavy fog is essential for depth
         scene.fogColor           = NSColor(red: 0.00, green: 0.03, blue: 0.08, alpha: 1)
         scene.fogStartDistance   = 6
         scene.fogEndDistance     = 32
@@ -21,6 +19,7 @@ public enum AbyssPortal {
         addOceanFloor(to: scene.rootNode)
         addLightRays(to: scene.rootNode)
         addCoral(to: scene.rootNode)
+        addForegroundCoral(to: scene.rootNode)   // very close — maximum parallax depth cue
         addBioluminescence(to: scene.rootNode)
         addJellyfish(to: scene.rootNode)
         addFish(to: scene.rootNode)
@@ -32,42 +31,72 @@ public enum AbyssPortal {
     // MARK: - Lighting
 
     private static func addLighting(to parent: SCNNode) {
+        // Dim blue-green ambient — deep ocean
         let amb = SCNNode()
-        amb.light = { let l = SCNLight(); l.type = .ambient
-            l.intensity = 120; l.color = NSColor(red: 0.00, green: 0.14, blue: 0.28, alpha: 1)
-            return l }()
+        amb.light = {
+            let l = SCNLight(); l.type = .ambient
+            l.intensity = 100; l.color = NSColor(red: 0.00, green: 0.12, blue: 0.24, alpha: 1)
+            return l
+        }()
         parent.addChildNode(amb)
 
-        // Faint directional light from above — sunlight filtering down
+        // Sunlight filtering down from above (caustic blue-white)
         let dir = SCNNode()
-        dir.light = { let l = SCNLight(); l.type = .directional
-            l.intensity = 250; l.color = NSColor(red: 0.00, green: 0.40, blue: 0.70, alpha: 1)
-            return l }()
+        dir.light = {
+            let l = SCNLight(); l.type = .directional
+            l.intensity = 220; l.color = NSColor(red: 0.00, green: 0.38, blue: 0.68, alpha: 1)
+            return l
+        }()
         dir.eulerAngles = SCNVector3(-0.30, 0, 0)
         parent.addChildNode(dir)
+
+        // Bioluminescent cyan fill — floating orbs light the mid-water
+        let bio1 = SCNNode()
+        bio1.light = {
+            let l = SCNLight(); l.type = .omni
+            l.intensity = 350; l.color = NSColor(red: 0.00, green: 0.90, blue: 1.00, alpha: 1)
+            l.attenuationStartDistance = 0; l.attenuationEndDistance = 20
+            l.attenuationFalloffExponent = 2
+            return l
+        }()
+        bio1.position = SCNVector3(-4, floorY + 6, -8)
+        parent.addChildNode(bio1)
+
+        // Warm purple bioluminescent fill on the right
+        let bio2 = SCNNode()
+        bio2.light = {
+            let l = SCNLight(); l.type = .omni
+            l.intensity = 280; l.color = NSColor(red: 0.55, green: 0.00, blue: 1.00, alpha: 1)
+            l.attenuationStartDistance = 0; l.attenuationEndDistance = 18
+            l.attenuationFalloffExponent = 2
+            return l
+        }()
+        bio2.position = SCNVector3(6, floorY + 4, -12)
+        parent.addChildNode(bio2)
     }
 
-    // MARK: - Ocean floor (extends into the distance)
+    // MARK: - Ocean floor (PBR sandy sediment)
 
     private static func addOceanFloor(to parent: SCNNode) {
         let floor = SCNPlane(width: 80, height: 120)
         let mat   = SCNMaterial()
-        mat.diffuse.contents  = makeSeabedTexture()
-        mat.specular.contents = NSColor(white: 0.08, alpha: 1)
-        mat.shininess = 10
+        mat.lightingModel       = .physicallyBased
+        mat.diffuse.contents    = makeSeabedTexture()
+        mat.roughness.contents  = CGFloat(0.88)
+        mat.metalness.contents  = CGFloat(0.00)
         mat.diffuse.wrapS = .repeat; mat.diffuse.wrapT = .repeat
         mat.diffuse.contentsTransform = SCNMatrix4MakeScale(8, 16, 1)
         floor.firstMaterial = mat
         let node = SCNNode(geometry: floor)
         node.eulerAngles.x = CGFloat(-Float.pi / 2)
-        // Centred far back so floor visible from near to far
         node.position = SCNVector3(0, floorY, -40)
         parent.addChildNode(node)
 
-        // Side walls (blends into fog, so just need a dark fill)
+        // Dark side walls (blend into fog)
         for sign: Float in [-1, 1] {
             let wall = SCNPlane(width: 120, height: 30)
             let wmat = SCNMaterial()
+            wmat.lightingModel    = .constant
             wmat.diffuse.contents = NSColor(red: 0, green: 0.02, blue: 0.06, alpha: 1)
             wall.firstMaterial = wmat
             let wNode = SCNNode(geometry: wall)
@@ -85,7 +114,6 @@ public enum AbyssPortal {
             NSColor(red: 0.08, green: 0.07, blue: 0.05, alpha: 1),
             NSColor(red: 0.05, green: 0.05, blue: 0.04, alpha: 1),
         ])!.draw(in: NSRect(origin: .zero, size: size), angle: 0)
-        // Rock speckles
         NSColor(red: 0.10, green: 0.09, blue: 0.07, alpha: 0.6).setFill()
         for _ in 0..<80 {
             let r = CGFloat.random(in: 2...6)
@@ -98,15 +126,17 @@ public enum AbyssPortal {
         return img
     }
 
-    // MARK: - Volumetric light rays
+    // MARK: - Volumetric light rays from the surface
 
     private static func addLightRays(to parent: SCNNode) {
         for i in -4...4 {
-            let w    = CGFloat(Float.random(in: 1.0...3.5))
-            let ray  = SCNPlane(width: w, height: 36)
-            let mat  = SCNMaterial()
-            mat.diffuse.contents  = NSColor(red: 0.00, green: 0.35, blue: 0.55, alpha: 0.05)
-            mat.emission.contents = NSColor(red: 0.00, green: 0.25, blue: 0.45, alpha: 0.07)
+            let w   = CGFloat(Float.random(in: 1.0...3.5))
+            let ray = SCNPlane(width: w, height: 36)
+            let mat = SCNMaterial()
+            mat.lightingModel     = .constant
+            mat.diffuse.contents  = NSColor(red: 0.00, green: 0.35, blue: 0.55, alpha: 0.06)
+            mat.emission.contents = NSColor(red: 0.00, green: 0.25, blue: 0.45, alpha: 1)
+            mat.emission.intensity = 0.5    // subtle glow on rays
             mat.blendMode = .add; mat.isDoubleSided = true
             ray.firstMaterial = mat
             let node = SCNNode(geometry: ray)
@@ -116,18 +146,17 @@ public enum AbyssPortal {
                 Float.random(in: -20 ... -8)
             )
             node.eulerAngles.z = CGFloat(Float.random(in: -0.20...0.20))
-            let sway = SCNAction.repeatForever(.sequence([
+            node.runAction(.repeatForever(.sequence([
                 .rotateTo(x: 0, y: 0, z: CGFloat(Float.random(in: -0.14...0.14)),
                           duration: Double.random(in: 4...9), usesShortestUnitArc: true),
                 .rotateTo(x: 0, y: 0, z: CGFloat(Float.random(in: -0.14...0.14)),
                           duration: Double.random(in: 4...9), usesShortestUnitArc: true),
-            ]))
-            node.runAction(sway)
+            ])))
             parent.addChildNode(node)
         }
     }
 
-    // MARK: - Coral formations ON the ocean floor
+    // MARK: - Coral formations on the ocean floor
 
     private static func addCoral(to parent: SCNNode) {
         let palette: [NSColor] = [
@@ -137,28 +166,65 @@ public enum AbyssPortal {
             NSColor(red: 0.55, green: 0.00, blue: 0.90, alpha: 1),
             NSColor(red: 0.00, green: 0.78, blue: 0.55, alpha: 1),
         ]
-        // Place coral at various x and z positions, rooted on the floor
         let positions: [(Float, Float)] = [
             (-8, -4), (-4, -6), (0, -5), (4, -7), (8, -4),
             (-6, -12), (-2, -10), (3, -11), (7, -13), (-9, -15),
             (-3, -18), (5, -16), (10, -10), (-11, -8), (2, -20),
         ]
         for (x, z) in positions {
-            let col    = palette.randomElement()!
-            let h      = Float.random(in: 1.5...6.0)
-            let cone   = SCNCone(
+            let col  = palette.randomElement()!
+            let h    = Float.random(in: 1.5...6.0)
+            let cone = SCNCone(
                 topRadius:    CGFloat(Float.random(in: 0...0.15)),
                 bottomRadius: CGFloat(Float.random(in: 0.15...0.60)),
                 height:       CGFloat(h)
             )
             let mat = SCNMaterial()
+            mat.lightingModel     = .physicallyBased
             mat.diffuse.contents  = col
-            mat.emission.contents = col.withAlphaComponent(0.20)
+            mat.roughness.contents = CGFloat(0.70)
+            mat.metalness.contents = CGFloat(0.00)
+            mat.emission.contents  = col
+            mat.emission.intensity = 1.5    // coral faintly self-illuminates
             cone.firstMaterial = mat
             let node = SCNNode(geometry: cone)
-            // Bottom of cone at floorY, tip pointing up
             node.position = SCNVector3(x, floorY + h / 2, z)
             node.eulerAngles.z = CGFloat(Float.random(in: -0.40...0.40))
+            parent.addChildNode(node)
+        }
+    }
+
+    // MARK: - Foreground coral (z=-1…-2, extreme parallax depth cue)
+
+    private static func addForegroundCoral(to parent: SCNNode) {
+        // Large coral right in front of the viewer — shifts dramatically with head movement
+        let palette: [NSColor] = [
+            NSColor(red: 0.95, green: 0.28, blue: 0.12, alpha: 1),
+            NSColor(red: 0.00, green: 0.78, blue: 0.55, alpha: 1),
+            NSColor(red: 0.78, green: 0.08, blue: 0.52, alpha: 1),
+        ]
+        let configs: [(Float, Float, Float, Float)] = [
+            // x,   z,    height, bottomR
+            (-5, -1.2,  3.5, 0.5),
+            ( 6, -1.5,  4.2, 0.6),
+            (-1, -2.0,  2.8, 0.4),
+            ( 3, -1.8,  3.0, 0.45),
+        ]
+        for (x, z, h, br) in configs {
+            let col  = palette.randomElement()!
+            let cone = SCNCone(topRadius: CGFloat(Float.random(in: 0...0.08)),
+                               bottomRadius: CGFloat(br), height: CGFloat(h))
+            let mat = SCNMaterial()
+            mat.lightingModel      = .physicallyBased
+            mat.diffuse.contents   = col
+            mat.roughness.contents = CGFloat(0.65)
+            mat.metalness.contents = CGFloat(0.00)
+            mat.emission.contents  = col
+            mat.emission.intensity = 2.0    // foreground coral glows brighter
+            cone.firstMaterial = mat
+            let node = SCNNode(geometry: cone)
+            node.position = SCNVector3(x, floorY + h / 2, z)
+            node.eulerAngles.z = CGFloat(Float.random(in: -0.25...0.25))
             parent.addChildNode(node)
         }
     }
@@ -177,8 +243,11 @@ public enum AbyssPortal {
             let orb = SCNSphere(radius: r)
             let col = palette.randomElement()!
             let mat = SCNMaterial()
-            mat.diffuse.contents  = col.withAlphaComponent(0.20)
-            mat.emission.contents = col; mat.blendMode = .add
+            mat.lightingModel     = .constant
+            mat.diffuse.contents  = col
+            mat.emission.contents = col
+            mat.emission.intensity = 5.0    // orbs bloom hard in HDR!
+            mat.blendMode = .add
             orb.firstMaterial = mat
             let node = SCNNode(geometry: orb)
             node.position = SCNVector3(
@@ -186,27 +255,26 @@ public enum AbyssPortal {
                 Float(floorY) + Float.random(in: 1...12),
                 Float.random(in: -25 ... -5)
             )
-            let drift = SCNAction.repeatForever(.sequence([
+            node.runAction(.repeatForever(.sequence([
                 .moveBy(x: CGFloat.random(in: -1.5...1.5),
                         y: CGFloat.random(in: -0.8...0.8), z: 0,
                         duration: Double.random(in: 3...8)),
                 .moveBy(x: CGFloat.random(in: -1.5...1.5),
                         y: CGFloat.random(in: -0.8...0.8), z: 0,
                         duration: Double.random(in: 3...8)),
-            ]))
-            node.runAction(drift)
+            ])))
             parent.addChildNode(node)
         }
     }
 
-    // MARK: - Jellyfish (pulsing + bobbing at mid-depth)
+    // MARK: - Jellyfish (pulsing, HDR bloom emission)
 
     private static func addJellyfish(to parent: SCNNode) {
         let palette: [NSColor] = [
-            NSColor(red: 0.00, green: 0.90, blue: 0.90, alpha: 0.40),
-            NSColor(red: 0.72, green: 0.00, blue: 0.90, alpha: 0.40),
-            NSColor(red: 0.00, green: 0.72, blue: 0.42, alpha: 0.40),
-            NSColor(red: 0.10, green: 0.38, blue: 1.00, alpha: 0.40),
+            NSColor(red: 0.00, green: 0.90, blue: 0.90, alpha: 0.60),
+            NSColor(red: 0.72, green: 0.00, blue: 0.90, alpha: 0.60),
+            NSColor(red: 0.00, green: 0.72, blue: 0.42, alpha: 0.60),
+            NSColor(red: 0.10, green: 0.38, blue: 1.00, alpha: 0.60),
         ]
         let positions: [(Float, Float, Float)] = [
             (-7, -4, -5), (3, -2, -7), (-2, 1, -10),
@@ -216,8 +284,10 @@ public enum AbyssPortal {
         for (x, y, z) in positions {
             let bodyCol = palette.randomElement()!
             let mat     = SCNMaterial()
+            mat.lightingModel     = .constant
             mat.diffuse.contents  = bodyCol
-            mat.emission.contents = bodyCol.withAlphaComponent(0.65)
+            mat.emission.contents = bodyCol
+            mat.emission.intensity = 4.0    // jellyfish pulse visible in HDR bloom
             mat.blendMode = .add; mat.isDoubleSided = true
 
             let bodyR = Float.random(in: 0.5...1.2)
@@ -242,16 +312,16 @@ public enum AbyssPortal {
                 .scale(to: 0.82, duration: Double.random(in: 0.55...1.10)),
                 .scale(to: 1.00, duration: Double.random(in: 0.55...1.10)),
             ])))
-            let bobDist = Float.random(in: 0.8...1.6)
+            let bobDist = CGFloat(Float.random(in: 0.8...1.6))
             jelly.runAction(.repeatForever(.sequence([
-                .moveBy(x: 0, y:  CGFloat(bobDist), z: 0, duration: Double.random(in: 2.5...5.0)),
-                .moveBy(x: 0, y: -CGFloat(bobDist), z: 0, duration: Double.random(in: 2.5...5.0)),
+                .moveBy(x: 0, y:  bobDist, z: 0, duration: Double.random(in: 2.5...5.0)),
+                .moveBy(x: 0, y: -bobDist, z: 0, duration: Double.random(in: 2.5...5.0)),
             ])))
             parent.addChildNode(jelly)
         }
     }
 
-    // MARK: - Fish (pre-spawned, swim across at varying depths)
+    // MARK: - Fish schools (loop forever — no removeFromParentNode)
 
     private static func addFish(to parent: SCNNode) {
         let palette: [NSColor] = [
@@ -259,21 +329,23 @@ public enum AbyssPortal {
             NSColor(red: 0.18, green: 0.90, blue: 0.62, alpha: 0.92),
             NSColor(red: 0.08, green: 0.38, blue: 0.82, alpha: 0.92),
         ]
-        // (startX, y, z) pairs — fish swim from one side to the other
         let specs: [(Float, Float, Float)] = [
-            (-28,  -5, -4), (28,  -7, -6), (-28, -3, -9),
-            ( 28,  -6, -12), (-28, -2, -15), (28,  -8, -5),
-            (-28,  -4, -18), (28,  -6, -8), (-28, -3, -22),
-            ( 28,  -5, -11), (-28, -7, -7), (28,  -4, -16),
+            (-28, -5, -4), (28, -7, -6), (-28, -3, -9),
+            ( 28, -6, -12), (-28, -2, -15), (28, -8, -5),
+            (-28, -4, -18), (28, -6, -8), (-28, -3, -22),
+            ( 28, -5, -11), (-28, -7, -7), (28, -4, -16),
         ]
         for (i, (sx, y, z)) in specs.enumerated() {
             let col      = palette.randomElement()!
             let fromLeft = sx < 0
             let endX: Float = fromLeft ? 28 : -28
+            let speed = Double.random(in: 10...20)
 
             let mat = SCNMaterial()
+            mat.lightingModel     = .constant
             mat.diffuse.contents  = col
-            mat.emission.contents = col.withAlphaComponent(0.28)
+            mat.emission.contents = col
+            mat.emission.intensity = 1.2   // fish have faint bioluminescent sheen
 
             let body = SCNBox(width: 1.0, height: 0.28, length: 0.18, chamferRadius: 0.10)
             body.firstMaterial = mat
@@ -290,13 +362,19 @@ public enum AbyssPortal {
             fish.opacity = 0
             parent.addChildNode(fish)
 
-            let delay = Double(i) * Double.random(in: 1.5...5.0)
-            let dur   = Double.random(in: 10...20)
+            let initDelay = Double(i) * Double.random(in: 1.2...4.0)
             fish.runAction(.sequence([
-                .wait(duration: delay),
-                .fadeIn(duration: 0.5),
-                .move(to: SCNVector3(CGFloat(endX), CGFloat(y), CGFloat(z)), duration: dur),
-                .removeFromParentNode()
+                .wait(duration: initDelay),
+                .repeatForever(.sequence([
+                    .group([
+                        .fadeIn(duration: 0.5),
+                        .move(to: SCNVector3(CGFloat(endX), CGFloat(y), CGFloat(z)),
+                              duration: speed),
+                    ]),
+                    .fadeOut(duration: 0.3),
+                    .run { n in n.position = SCNVector3(sx, y, z) },
+                    .wait(duration: Double.random(in: 4...10)),
+                ])),
             ]))
         }
     }
@@ -317,5 +395,4 @@ public enum AbyssPortal {
         emitter.addParticleSystem(ps)
         parent.addChildNode(emitter)
     }
-
 }

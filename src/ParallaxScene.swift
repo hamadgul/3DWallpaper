@@ -12,9 +12,33 @@ public final class ParallaxScene {
         self.cameraNode = SCNNode()
 
         let camera = SCNCamera()
-        camera.fieldOfView = 60
+        camera.fieldOfView = 55        // narrower than 60 — more depth compression, cinematic feel
         camera.zNear = 0.1
         camera.zFar  = 500
+
+        // HDR pipeline — required for everything below
+        camera.wantsHDR     = true
+        camera.exposureOffset = -0.3   // slightly underexpose so bloom highlights pop
+
+        // Bloom — emissive surfaces with emissionIntensity > 1 will bleed light
+        camera.bloomThreshold  = 0.75
+        camera.bloomIntensity  = 1.4
+        camera.bloomBlurRadius = 6.0
+
+        // Depth of field — focus midground, fore/background blur naturally
+        // focusDistance is from the camera (camera is at z=20, so distance 25 → world z ≈ -5)
+        camera.wantsDepthOfField = true
+        camera.focusDistance      = 25.0
+        camera.fStop              = 4.5    // moderate blur; lower = more, higher = less
+        camera.apertureBladeCount = 6      // hexagonal bokeh
+
+        // Screen-space ambient occlusion — adds depth cues in corners and crevices
+        camera.screenSpaceAmbientOcclusionIntensity       = 0.80
+        camera.screenSpaceAmbientOcclusionRadius          = 0.08
+        camera.screenSpaceAmbientOcclusionBias            = 0.03
+        camera.screenSpaceAmbientOcclusionDepthThreshold  = 0.20
+        camera.screenSpaceAmbientOcclusionNormalThreshold = 0.30
+
         cameraNode.camera   = camera
         cameraNode.position = SCNVector3(0, 0, 20)
         scene.rootNode.addChildNode(cameraNode)
